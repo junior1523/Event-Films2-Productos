@@ -11,20 +11,23 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
+  const getRedirectPath = (user: any) => {
+    if (user.roles.includes("admin")) return "/";
+    if (user.roles.includes("personal")) {
+      const spec = (user.specialty || "").toLowerCase();
+      const isEditor = spec.includes("editor");
+      const isOther = spec.replace(/editor/g, "").replace(/[^a-z]/g, "").length > 0;
+      
+      if (isEditor && isOther) return "/seleccionar-rol";
+      if (isEditor) return "/ediciones";
+      return "/trabajador";
+    }
+    return "/";
+  };
+
   useEffect(() => {
     if (currentUser) {
-      if (currentUser.roles.includes("admin")) {
-        navigate("/", { replace: true });
-      } else if (
-        currentUser.roles.includes("editor") &&
-        currentUser.roles.includes("personal")
-      ) {
-        navigate("/seleccionar-rol", { replace: true });
-      } else if (currentUser.roles.includes("editor")) {
-        navigate("/ediciones", { replace: true });
-      } else if (currentUser.roles.includes("personal")) {
-        navigate("/trabajador", { replace: true });
-      }
+      navigate(getRedirectPath(currentUser), { replace: true });
     }
   }, [currentUser, navigate]);
 
@@ -35,17 +38,7 @@ export function Login() {
       setError("Usuario o contraseña incorrectos.");
       return;
     }
-    if (user.roles.includes("admin")) {
-      navigate("/", { replace: true });
-    } else if (user.roles.includes("editor") && user.roles.includes("personal")) {
-      navigate("/seleccionar-rol", { replace: true });
-    } else if (user.roles.includes("editor")) {
-      navigate("/ediciones", { replace: true });
-    } else if (user.roles.includes("personal")) {
-      navigate("/trabajador", { replace: true });
-    } else {
-      navigate("/", { replace: true });
-    }
+    navigate(getRedirectPath(user), { replace: true });
   };
 
   return (
@@ -62,14 +55,6 @@ export function Login() {
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-700 bg-slate-950/80 p-5">
-            <p className="text-sm text-slate-400 mb-3">Cuenta de acceso predeterminada</p>
-            <div className="grid gap-2 text-sm text-slate-300">
-              <span>Usuario: <strong>admin</strong></span>
-              <span>Contraseña: <strong>admin</strong></span>
-            </div>
-          </div>
-
           {error ? (
             <div className="rounded-2xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
               {error}
@@ -83,7 +68,7 @@ export function Login() {
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
-                placeholder="admin"
+                placeholder="Usuario"
                 autoComplete="username"
               />
             </label>
@@ -94,7 +79,7 @@ export function Login() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
-                placeholder="admin"
+                placeholder="Contraseña"
                 autoComplete="current-password"
               />
             </label>

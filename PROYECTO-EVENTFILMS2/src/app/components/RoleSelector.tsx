@@ -18,8 +18,9 @@ export function RoleSelector() {
     return <Navigate to="/login" replace />;
   }
 
-  const canEditor = currentUser.roles.includes("editor");
-  const canPersonal = currentUser.roles.includes("personal");
+  const spec = (currentUser.specialty || "").toLowerCase();
+  const canEditor = spec.includes("editor");
+  const canPersonal = spec.replace(/editor/g, "").replace(/[^a-z]/g, "").length > 0;
 
   if (!canEditor && canPersonal) {
     return <Navigate to="/trabajador" replace />;

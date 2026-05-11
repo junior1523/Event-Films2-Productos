@@ -53,13 +53,23 @@ export function Layout() {
     { name: "Perfil", href: "/perfil", icon: Users },
   ];
 
-  const navigation = currentUser.roles.includes("admin")
-    ? adminNavigation
-    : currentUser.roles.includes("editor") && currentUser.roles.includes("personal")
-    ? mixedNavigation
-    : currentUser.roles.includes("editor")
-    ? editorNavigation
-    : personalNavigation;
+  const getNavigation = () => {
+    if (currentUser.roles.includes("admin")) return adminNavigation;
+    
+    if (currentUser.roles.includes("personal")) {
+      const spec = (currentUser.specialty || "").toLowerCase();
+      const isEditor = spec.includes("editor");
+      const isOther = spec.replace(/editor/g, "").replace(/[^a-z]/g, "").length > 0;
+      
+      if (isEditor && isOther) return mixedNavigation;
+      if (isEditor) return editorNavigation;
+      return personalNavigation;
+    }
+    
+    return adminNavigation; // Fallback
+  };
+
+  const navigation = getNavigation();
 
   return (
     <div className="min-h-screen bg-gray-50">

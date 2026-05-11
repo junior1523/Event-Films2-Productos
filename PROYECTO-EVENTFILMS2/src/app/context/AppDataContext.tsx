@@ -107,7 +107,7 @@ export interface UserAccount {
   id: number;
   username: string;
   password: string;
-  roles: Array<"admin" | "editor" | "personal">;
+  roles: Array<"admin" | "personal">;
   personalId?: number;
   specialty?: string;
   nombres: string;
@@ -152,6 +152,8 @@ interface AppDataContextValue {
   setAlmacenamientos: Dispatch<SetStateAction<Almacenamiento[]>>;
   eventosDesignados: EventoDesignado[];
   setEventosDesignados: Dispatch<SetStateAction<EventoDesignado[]>>;
+  updateUser: (id: number, updates: Partial<UserAccount>) => void;
+  deleteUser: (id: number) => void;
 }
 
 const AppDataContext = createContext<AppDataContextValue | undefined>(undefined);
@@ -170,7 +172,8 @@ const initialUsers: UserAccount[] = [
     id: 2,
     username: "editor",
     password: "editor123",
-    roles: ["editor"],
+    roles: ["personal"],
+    specialty: "Editor",
     nombres: "María",
     apellidos: "Santos",
     email: "maria@eventfilms.com",
@@ -180,7 +183,7 @@ const initialUsers: UserAccount[] = [
     username: "camarografo1",
     password: "camarografo",
     roles: ["personal"],
-    personalId: 1,
+    personalId: 991,
     specialty: "Camarógrafo",
     nombres: "Carlos",
     apellidos: "Mendoza",
@@ -190,8 +193,8 @@ const initialUsers: UserAccount[] = [
     id: 4,
     username: "multi",
     password: "multi123",
-    roles: ["editor", "personal"],
-    personalId: 2,
+    roles: ["personal"],
+    personalId: 992,
     specialty: "Editor / Camarógrafo",
     nombres: "María",
     apellidos: "Santos",
@@ -467,27 +470,36 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [personalList, setPersonalList] = useState<PersonalMember[]>(initialPersonal);
   const [almacenamientos, setAlmacenamientos] = useState<Almacenamiento[]>(initialAlmacenamientos);
   const [eventosDesignados, setEventosDesignados] = useState<EventoDesignado[]>(initialEventosDesignados);
-  const [users, setUsers] = useState<UserAccount[]>(initialUsers);
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
-
-  useEffect(() => {
-    const storedUsers = window.localStorage.getItem("eventfilms-users");
-    const storedSession = window.localStorage.getItem("eventfilms-current-user");
-    if (storedUsers) {
-      try {
-        setUsers(JSON.parse(storedUsers));
-      } catch (error) {
-        console.warn("No se pudo leer usuarios guardados.");
+  const [users, setUsers] = useState<UserAccount[]>(() => {
+    if (typeof window !== "undefined") {
+      const storedUsers = window.localStorage.getItem("eventfilms-users");
+      if (storedUsers) {
+        try {
+          return JSON.parse(storedUsers).map((u: UserAccount) => {
+            if (u.username === "camarografo1" && u.personalId === 1) return { ...u, personalId: 991 };
+            if (u.username === "multi" && u.personalId === 2) return { ...u, personalId: 992 };
+            return u;
+          });
+        } catch (error) {
+          console.warn("No se pudo leer usuarios guardados.");
+        }
       }
     }
-    if (storedSession) {
-      try {
-        setCurrentUser(JSON.parse(storedSession));
-      } catch (error) {
-        console.warn("No se pudo leer sesión guardada.");
+    return initialUsers;
+  });
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
+    if (typeof window !== "undefined") {
+      const storedSession = window.localStorage.getItem("eventfilms-current-user");
+      if (storedSession) {
+        try {
+          return JSON.parse(storedSession);
+        } catch (error) {
+          console.warn("No se pudo leer sesión guardada.");
+        }
       }
     }
-  }, []);
+    return null;
+  });
 
   useEffect(() => {
     window.localStorage.setItem("eventfilms-users", JSON.stringify(users));
@@ -503,7 +515,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
 
   const login = (username: string, password: string) => {
     const user = users.find(
-      (item) => item.username === username && item.password === password
+      (item) => item.username.toLowerCase() === username.toLowerCase() && item.password === password
     );
     if (!user) return undefined;
     setCurrentUser(user);
@@ -515,7 +527,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const createUser = (user: Omit<UserAccount, "id">) => {
-    if (users.some((item) => item.username === user.username)) {
+    if (users.some((item) => item.username.toLowerCase() === user.username.toLowerCase())) {
       return false;
     }
     const newUser = { id: Date.now(), ...user };
@@ -528,7 +540,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     username: string,
     password: string
   ) => {
-    if (users.some((item) => item.username === username || item.personalId === personalId)) {
+    if (users.some((item) => item.username.toLowerCase() === username.toLowerCase() || item.personalId === personalId)) {
       return false;
     }
     const personal = personalList.find((member) => member.id === personalId);
@@ -545,6 +557,20 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
       apellidos: personal.apellidos,
       email: personal.email,
     });
+  };
+
+  const updateUser = (id: number, updates: Partial<UserAccount>) => {
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updates } : u)));
+    if (currentUser?.id === id) {
+      setCurrentUser((prev) => (prev ? { ...prev, ...updates } : prev));
+    }
+  };
+
+  const deleteUser = (id: number) => {
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+    if (currentUser?.id === id) {
+      logout();
+    }
   };
 
   // Cargar datos reales desde MySQL al montar
@@ -783,6 +809,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setAlmacenamientos,
         eventosDesignados,
         setEventosDesignados,
+        updateUser,
+        deleteUser,
       }}
     >
       {children}
