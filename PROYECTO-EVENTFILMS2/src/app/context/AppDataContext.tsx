@@ -129,6 +129,16 @@ export interface EventoDesignado {
   fecha: string;
 }
 
+export interface Notificacion {
+  id: number;
+  usuario_id: number | null;
+  mensaje: string;
+  leido: boolean;
+  tipo: "Global" | "Específica" | "Automática";
+  prioridad: "Baja" | "Media" | "Alta";
+  created_at: string;
+}
+
 
 interface AppDataContextValue {
   contracts: Contrato[];
@@ -154,6 +164,11 @@ interface AppDataContextValue {
   setEventosDesignados: Dispatch<SetStateAction<EventoDesignado[]>>;
   updateUser: (id: number, updates: Partial<UserAccount>) => void;
   deleteUser: (id: number) => void;
+  notificaciones: Notificacion[];
+  fetchNotificaciones: () => void;
+  enviarNotificacion: (notif: Omit<Notificacion, "id" | "leido" | "created_at">) => Promise<void>;
+  marcarNotificacionLeida: (id: number) => void;
+  eliminarNotificacion: (id: number) => void;
 }
 
 const AppDataContext = createContext<AppDataContextValue | undefined>(undefined);
@@ -470,23 +485,8 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [personalList, setPersonalList] = useState<PersonalMember[]>(initialPersonal);
   const [almacenamientos, setAlmacenamientos] = useState<Almacenamiento[]>(initialAlmacenamientos);
   const [eventosDesignados, setEventosDesignados] = useState<EventoDesignado[]>(initialEventosDesignados);
-  const [users, setUsers] = useState<UserAccount[]>(() => {
-    if (typeof window !== "undefined") {
-      const storedUsers = window.localStorage.getItem("eventfilms-users");
-      if (storedUsers) {
-        try {
-          return JSON.parse(storedUsers).map((u: UserAccount) => {
-            if (u.username === "camarografo1" && u.personalId === 1) return { ...u, personalId: 991 };
-            if (u.username === "multi" && u.personalId === 2) return { ...u, personalId: 992 };
-            return u;
-          });
-        } catch (error) {
-          console.warn("No se pudo leer usuarios guardados.");
-        }
-      }
-    }
-    return initialUsers;
-  });
+  const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
+  const [users, setUsers] = useState<UserAccount[]>(initialUsers);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
     if (typeof window !== "undefined") {
       const storedSession = window.localStorage.getItem("eventfilms-current-user");
@@ -501,9 +501,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return null;
   });
 
-  useEffect(() => {
-    window.localStorage.setItem("eventfilms-users", JSON.stringify(users));
-  }, [users]);
+  // Eliminamos el guardado de usuarios en localStorage ya que ahora usamos DB
 
   useEffect(() => {
     if (currentUser) {
@@ -526,13 +524,22 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     setCurrentUser(null);
   };
 
-  const createUser = (user: Omit<UserAccount, "id">) => {
-    if (users.some((item) => item.username.toLowerCase() === user.username.toLowerCase())) {
-      return false;
-    }
-    const newUser = { id: Date.now(), ...user };
-    setUsers((prev) => [...prev, newUser]);
-    return true;
+  const createUser = async (user: Omit<UserAccount, "id">) => {
+    try {
+      const res = await fetch("http://localhost:3001/api/usuarios", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...user,
+          personal_id: user.personalId // map to DB field
+        }),
+      });
+      if (res.ok) {
+        fetchUsers();
+        return true;
+      }
+    } catch (err) {}
+    return false;
   };
 
   const createWorkerAccount = (
@@ -559,22 +566,155 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const updateUser = (id: number, updates: Partial<UserAccount>) => {
-    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updates } : u)));
-    if (currentUser?.id === id) {
-      setCurrentUser((prev) => (prev ? { ...prev, ...updates } : prev));
-    }
+  const updateUser = async (id: number, updates: Partial<UserAccount>) => {
+    const user = users.find(u => u.id === id);
+    if (!user) return;
+    
+    const updatedUser = { ...user, ...updates };
+    try {
+      await fetch(`http://localhost:3001/api/usuarios/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...updatedUser,
+          personal_id: updatedUser.personalId
+        }),
+      });
+      fetchUsers();
+    } catch (err) {}
   };
 
-  const deleteUser = (id: number) => {
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-    if (currentUser?.id === id) {
-      logout();
+  const deleteUser = async (id: number) => {
+    try {
+      await fetch(`http://localhost:3001/api/usuarios/${id}`, { method: "DELETE" });
+      fetchUsers();
+      if (currentUser?.id === id) {
+        logout();
+      }
+    } catch (err) {}
+  };
+
+  const fetchNotificaciones = () => {
+    if (!currentUser) return;
+    const url = new URL("http://localhost:3001/api/notificaciones");
+    if (currentUser.roles.includes("admin")) {
+      url.searchParams.append("all", "true");
+    } else if (currentUser.personalId) {
+      url.searchParams.append("usuario_id", currentUser.personalId.toString());
     }
+    fetch(url.toString())
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setNotificaciones(data);
+        } else {
+          console.warn("La API de notificaciones no devolvió un array:", data);
+          setNotificaciones([]);
+        }
+      })
+      .catch(() => setNotificaciones([]));
+  };
+
+  useEffect(() => {
+    fetchNotificaciones();
+    const interval = setInterval(fetchNotificaciones, 60000);
+    return () => clearInterval(interval);
+  }, [currentUser]);
+
+  const enviarNotificacion = async (notif: Omit<Notificacion, "id" | "leido" | "created_at">) => {
+    try {
+      const res = await fetch("http://localhost:3001/api/notificaciones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(notif),
+      });
+      if (res.ok) fetchNotificaciones();
+    } catch (err) {}
+  };
+
+  const marcarNotificacionLeida = (id: number) => {
+    fetch(`http://localhost:3001/api/notificaciones/${id}/read`, { method: "PUT" })
+      .then(() => fetchNotificaciones())
+      .catch(() => {});
+  };
+
+  const eliminarNotificacion = (id: number) => {
+    fetch(`http://localhost:3001/api/notificaciones/${id}`, { method: "DELETE" })
+      .then(() => fetchNotificaciones())
+      .catch(() => {});
+  };
+
+  // ─── LÓGICA DE NOTIFICACIONES AUTOMÁTICAS ────────────────────────────────────
+  useEffect(() => {
+    if (!currentUser || !currentUser.personalId || (ediciones.length === 0 && Object.keys(horarioEventos).length === 0)) return;
+
+    const staffId = currentUser.personalId;
+    const fullName = `${currentUser.nombres} ${currentUser.apellidos}`.toLowerCase();
+    const today = new Date();
+
+    // 1. Verificar asignaciones en Ediciones
+    ediciones.forEach(ed => {
+      const isAssigned = ed.editor.toLowerCase().includes(fullName);
+      if (isAssigned) {
+        const alreadyNotified = notificaciones.some(n => 
+          n.usuario_id === staffId && n.mensaje.includes(ed.evento) && n.mensaje.includes("asignado")
+        );
+        if (!alreadyNotified) {
+          enviarNotificacion({
+            usuario_id: staffId,
+            mensaje: `📅 Nueva asignación: Se te ha asignado el evento de edición "${ed.evento}".`,
+            tipo: "Automática",
+            prioridad: "Media"
+          });
+        }
+
+        // 2. Recordatorios de fecha de entrega
+        const deliveryDate = new Date(ed.fechaEntrega);
+        const diffDays = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 0 && diffDays <= 3 && ed.estado !== "Entregado" && ed.estado !== "Completado") {
+          const reminderMsg = `⚠️ Recordatorio: Quedan ${diffDays} días para la entrega de "${ed.evento}".`;
+          const alreadyReminded = notificaciones.some(n => n.usuario_id === staffId && n.mensaje === reminderMsg);
+          if (!alreadyReminded) {
+            enviarNotificacion({
+              usuario_id: staffId,
+              mensaje: reminderMsg,
+              tipo: "Automática",
+              prioridad: "Alta"
+            });
+          }
+        }
+      }
+    });
+
+    // 3. Verificar asignaciones en Horarios (Personal Audiovisual)
+    Object.values(horarioEventos).flat().forEach(event => {
+      const isAssigned = event.personal.some(p => p.toLowerCase().includes(fullName));
+      if (isAssigned) {
+        const alreadyNotified = notificaciones.some(n => 
+          n.usuario_id === staffId && n.mensaje.includes(event.titulo) && n.mensaje.includes("calendario")
+        );
+        if (!alreadyNotified) {
+          enviarNotificacion({
+            usuario_id: staffId,
+            mensaje: `🎥 Nuevo evento en calendario: Has sido asignado a "${event.titulo}" para el día ${event.startTime}.`,
+            tipo: "Automática",
+            prioridad: "Media"
+          });
+        }
+      }
+    });
+  }, [currentUser, ediciones, horarioEventos, notificaciones]);
+
+  const fetchUsers = () => {
+    fetch("http://localhost:3001/api/usuarios")
+      .then((r) => r.json())
+      .then((data) => setUsers(data))
+      .catch(() => {});
   };
 
   // Cargar datos reales desde MySQL al montar
   useEffect(() => {
+    fetchUsers();
     // 1. EVENTOS / EDICIONES
     fetch("http://localhost:3001/api/eventos")
       .then((r) => r.json())
@@ -811,6 +951,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setEventosDesignados,
         updateUser,
         deleteUser,
+        notificaciones,
+        fetchNotificaciones,
+        enviarNotificacion,
+        marcarNotificacionLeida,
+        eliminarNotificacion,
       }}
     >
       {children}

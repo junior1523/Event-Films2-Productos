@@ -10,6 +10,7 @@ import { MaterialAudiovisual } from "./components/MaterialAudiovisual";
 import { Login } from "./components/Login";
 import { RoleSelector } from "./components/RoleSelector";
 import { AdminUsuarios } from "./components/AdminUsuarios";
+import { AdminNotificaciones } from "./components/AdminNotificaciones";
 import { WorkerHome } from "./components/WorkerHome";
 import { Profile } from "./components/Perfil";
 
@@ -30,6 +31,7 @@ export const router = createBrowserRouter([
       { path: "horarios", Component: Horarios },
       { path: "material", Component: MaterialAudiovisual },
       { path: "usuarios", Component: AdminUsuarios },
+      { path: "notificaciones", Component: AdminNotificaciones },
       { path: "trabajador", Component: WorkerHome },
       { path: "perfil", Component: Profile },
       { path: "seleccionar-rol", Component: RoleSelector },

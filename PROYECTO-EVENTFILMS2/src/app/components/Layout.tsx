@@ -12,14 +12,17 @@ import {
   LogOut,
   ShieldCheck,
   SlidersHorizontal,
+  Bell,
+  Check,
 } from "lucide-react";
 import { useState } from "react";
 import { useAppData } from "../context/AppDataContext";
 
 export function Layout() {
-  const { currentUser, logout } = useAppData();
+  const { currentUser, logout, notificaciones = [], marcarNotificacionLeida } = useAppData();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
 
   if (!currentUser) {
     return <Navigate to="/login" replace />;
@@ -34,6 +37,7 @@ export function Layout() {
     { name: "Horarios", href: "/horarios", icon: Calendar },
     { name: "Material", href: "/material", icon: PackageOpen },
     { name: "Usuarios", href: "/usuarios", icon: ShieldCheck },
+    { name: "Notificaciones", href: "/notificaciones", icon: Bell },
   ];
 
   const editorNavigation = [
@@ -44,6 +48,7 @@ export function Layout() {
   const personalNavigation = [
     { name: "Mi calendario", href: "/trabajador", icon: Calendar },
     { name: "Perfil", href: "/perfil", icon: Users },
+    { name: "Notificaciones", href: "/notificaciones", icon: Bell },
   ];
 
   const mixedNavigation = [
@@ -51,6 +56,7 @@ export function Layout() {
     { name: "Ediciones", href: "/ediciones", icon: Film },
     { name: "Mi calendario", href: "/trabajador", icon: Calendar },
     { name: "Perfil", href: "/perfil", icon: Users },
+    { name: "Notificaciones", href: "/notificaciones", icon: Bell },
   ];
 
   const getNavigation = () => {
@@ -70,6 +76,10 @@ export function Layout() {
   };
 
   const navigation = getNavigation();
+
+  const unreadCount = Array.isArray(notificaciones) 
+    ? notificaciones.filter((n) => !n.leido).length 
+    : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -171,6 +181,82 @@ export function Layout() {
               >
                 <LogOut className="mr-2 h-4 w-4" /> Cerrar sesión
               </button>
+
+              {/* Notification Bell */}
+              <div className="relative ml-2">
+                <button
+                  onClick={() => setNotifOpen(!notifOpen)}
+                  className="relative p-2 rounded-2xl bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-200 transition shadow-sm"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white ring-2 ring-white">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {notifOpen && (
+                  <div className="absolute right-0 mt-3 w-80 rounded-3xl border border-slate-200 bg-white shadow-xl z-50 overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                      <h3 className="text-sm font-bold text-slate-900">Notificaciones</h3>
+                      {unreadCount > 0 && (
+                        <span className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">
+                          {unreadCount} nuevas
+                        </span>
+                      )}
+                    </div>
+                    <div className="max-h-96 overflow-y-auto">
+                      {notificaciones.length === 0 ? (
+                        <div className="p-8 text-center text-slate-500">
+                          <Bell className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                          <p className="text-xs">No tienes notificaciones</p>
+                        </div>
+                      ) : (
+                        notificaciones.map((n) => (
+                          <div 
+                            key={n.id} 
+                            className={`p-4 border-b border-slate-50 hover:bg-slate-50 transition relative group ${!n.leido ? 'bg-blue-50/30' : ''}`}
+                          >
+                            <div className="flex justify-between items-start mb-1">
+                              <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded ${
+                                n.prioridad === 'Alta' ? 'bg-red-100 text-red-600' : 
+                                n.prioridad === 'Media' ? 'bg-amber-100 text-amber-600' : 
+                                'bg-green-100 text-green-600'
+                              }`}>
+                                {n.prioridad}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {new Date(n.created_at).toLocaleDateString([], { day: '2-digit', month: 'short' })}
+                              </span>
+                            </div>
+                            <p className={`text-xs leading-relaxed ${!n.leido ? 'font-medium text-slate-900' : 'text-slate-600'}`}>
+                              {n.mensaje}
+                            </p>
+                            {!n.leido && (
+                              <button 
+                                onClick={() => marcarNotificacionLeida(n.id)}
+                                className="mt-2 text-[10px] font-bold text-blue-600 flex items-center gap-1 hover:underline"
+                              >
+                                <Check className="h-3 w-3" /> Marcar como leída
+                              </button>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="p-3 text-center border-t border-slate-100">
+                      <Link 
+                        to={currentUser.roles.includes('admin') ? "/notificaciones" : "/trabajador"} 
+                        onClick={() => setNotifOpen(false)}
+                        className="text-[11px] font-bold text-slate-500 hover:text-blue-600 transition"
+                      >
+                        Ver todo
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -397,6 +397,118 @@ app.delete("/api/evento_almacenamiento/:id", async (req, res) => {
   }
 });
 
+// ─── NOTIFICACIONES ──────────────────────────────────────────────────────────
+app.get("/api/notificaciones", async (req, res) => {
+  const { usuario_id, all } = req.query;
+  try {
+    let query = "SELECT * FROM notificaciones";
+    let params = [];
+    
+    if (all === 'true') {
+      // Return all notifications (for admin log)
+      query += " WHERE 1=1";
+    } else {
+      query += " WHERE usuario_id IS NULL";
+      if (usuario_id) {
+        query += " OR usuario_id = ?";
+        params.push(usuario_id);
+      }
+    }
+    
+    query += " ORDER BY created_at DESC";
+    const [rows] = await pool.query(query, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: "Error al obtener notificaciones" });
+  }
+});
+
+app.post("/api/notificaciones", async (req, res) => {
+  const { usuario_id, mensaje, tipo, prioridad } = req.body;
+  try {
+    const [result] = await pool.query(
+      "INSERT INTO notificaciones (usuario_id, mensaje, tipo, prioridad) VALUES (?, ?, ?, ?)",
+      [usuario_id || null, mensaje, tipo || 'Específica', prioridad || 'Media']
+    );
+    res.json({ id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ error: "Error al crear notificación" });
+  }
+});
+
+app.put("/api/notificaciones/:id/read", async (req, res) => {
+  try {
+    await pool.query("UPDATE notificaciones SET leido = 1 WHERE id = ?", [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Error al actualizar notificación" });
+  }
+});
+
+app.delete("/api/notificaciones/:id", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM notificaciones WHERE id = ?", [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Error al eliminar notificación" });
+  }
+});
+
+// ─── USUARIOS ────────────────────────────────────────────────────────────────
+app.get("/api/usuarios", async (req, res) => {
+  try {
+    const [rows] = await pool.query("SELECT * FROM usuarios");
+    // Parse roles JSON
+    const mapped = rows.map(r => ({
+      ...r,
+      roles: typeof r.roles === 'string' ? JSON.parse(r.roles) : r.roles,
+      personalId: r.personal_id // map for frontend
+    }));
+    res.json(mapped);
+  } catch (err) {
+    res.status(500).json({ error: "Error al obtener usuarios" });
+  }
+});
+
+app.post("/api/usuarios", async (req, res) => {
+  const { username, password, roles, personal_id, specialty, nombres, apellidos, email } = req.body;
+  try {
+    const [result] = await pool.query(
+      `INSERT INTO usuarios (username, password, roles, personal_id, specialty, nombres, apellidos, email) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [username, password, JSON.stringify(roles || []), personal_id || null, specialty || null, nombres, apellidos, email]
+    );
+    res.json({ id: result.insertId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al crear usuario" });
+  }
+});
+
+app.put("/api/usuarios/:id", async (req, res) => {
+  const { id } = req.params;
+  const { username, password, roles, personal_id, specialty, nombres, apellidos, email } = req.body;
+  try {
+    await pool.query(
+      `UPDATE usuarios SET username=?, password=?, roles=?, personal_id=?, specialty=?, 
+       nombres=?, apellidos=?, email=?, updated_at=NOW() WHERE id=?`,
+      [username, password, JSON.stringify(roles || []), personal_id || null, specialty || null, nombres, apellidos, email, id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Error al actualizar usuario" });
+  }
+});
+
+app.delete("/api/usuarios/:id", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM usuarios WHERE id = ?", [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Error al eliminar usuario" });
+  }
+});
+
 // ─── START ────────────────────────────────────────────────────────────────────
 const PORT = 3001;
 app.listen(PORT, () => {
