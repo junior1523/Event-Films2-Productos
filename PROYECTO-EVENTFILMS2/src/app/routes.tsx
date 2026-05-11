@@ -7,8 +7,17 @@ import { Personal } from "./components/Personal";
 import { Ediciones } from "./components/Ediciones";
 import { Horarios } from "./components/Horarios";
 import { MaterialAudiovisual } from "./components/MaterialAudiovisual";
+import { Login } from "./components/Login";
+import { RoleSelector } from "./components/RoleSelector";
+import { AdminUsuarios } from "./components/AdminUsuarios";
+import { WorkerHome } from "./components/WorkerHome";
+import { Profile } from "./components/Perfil";
 
 export const router = createBrowserRouter([
+  {
+    path: "/login",
+    Component: Login,
+  },
   {
     path: "/",
     Component: Layout,
@@ -20,6 +29,10 @@ export const router = createBrowserRouter([
       { path: "ediciones", Component: Ediciones },
       { path: "horarios", Component: Horarios },
       { path: "material", Component: MaterialAudiovisual },
+      { path: "usuarios", Component: AdminUsuarios },
+      { path: "trabajador", Component: WorkerHome },
+      { path: "perfil", Component: Profile },
+      { path: "seleccionar-rol", Component: RoleSelector },
     ],
   },
 ]);

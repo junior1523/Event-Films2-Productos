@@ -103,6 +103,18 @@ export interface PersonalMember {
   calificacion: number;
 }
 
+export interface UserAccount {
+  id: number;
+  username: string;
+  password: string;
+  roles: Array<"admin" | "editor" | "personal">;
+  personalId?: number;
+  specialty?: string;
+  nombres: string;
+  apellidos: string;
+  email: string;
+}
+
 export interface Almacenamiento {
   id: number;
   nombre: string;
@@ -129,6 +141,13 @@ interface AppDataContextValue {
   setEdiciones: Dispatch<SetStateAction<Edicion[]>>;
   personalList: PersonalMember[];
   setPersonalList: Dispatch<SetStateAction<PersonalMember[]>>;
+  users: UserAccount[];
+  setUsers: Dispatch<SetStateAction<UserAccount[]>>;
+  currentUser: UserAccount | null;
+  login: (username: string, password: string) => UserAccount | undefined;
+  logout: () => void;
+  createUser: (user: Omit<UserAccount, "id">) => boolean;
+  createWorkerAccount: (personalId: number, username: string, password: string) => boolean;
   almacenamientos: Almacenamiento[];
   setAlmacenamientos: Dispatch<SetStateAction<Almacenamiento[]>>;
   eventosDesignados: EventoDesignado[];
@@ -136,6 +155,49 @@ interface AppDataContextValue {
 }
 
 const AppDataContext = createContext<AppDataContextValue | undefined>(undefined);
+
+const initialUsers: UserAccount[] = [
+  {
+    id: 1,
+    username: "admin",
+    password: "admin",
+    roles: ["admin"],
+    nombres: "Admin",
+    apellidos: "EventFilms",
+    email: "admin@eventfilms.com",
+  },
+  {
+    id: 2,
+    username: "editor",
+    password: "editor123",
+    roles: ["editor"],
+    nombres: "María",
+    apellidos: "Santos",
+    email: "maria@eventfilms.com",
+  },
+  {
+    id: 3,
+    username: "camarografo1",
+    password: "camarografo",
+    roles: ["personal"],
+    personalId: 1,
+    specialty: "Camarógrafo",
+    nombres: "Carlos",
+    apellidos: "Mendoza",
+    email: "carlos@eventfilms.com",
+  },
+  {
+    id: 4,
+    username: "multi",
+    password: "multi123",
+    roles: ["editor", "personal"],
+    personalId: 2,
+    specialty: "Editor / Camarógrafo",
+    nombres: "María",
+    apellidos: "Santos",
+    email: "maria@eventfilms.com",
+  },
+];
 
 const initialContracts: Contrato[] = [
   {
@@ -405,6 +467,85 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   const [personalList, setPersonalList] = useState<PersonalMember[]>(initialPersonal);
   const [almacenamientos, setAlmacenamientos] = useState<Almacenamiento[]>(initialAlmacenamientos);
   const [eventosDesignados, setEventosDesignados] = useState<EventoDesignado[]>(initialEventosDesignados);
+  const [users, setUsers] = useState<UserAccount[]>(initialUsers);
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+
+  useEffect(() => {
+    const storedUsers = window.localStorage.getItem("eventfilms-users");
+    const storedSession = window.localStorage.getItem("eventfilms-current-user");
+    if (storedUsers) {
+      try {
+        setUsers(JSON.parse(storedUsers));
+      } catch (error) {
+        console.warn("No se pudo leer usuarios guardados.");
+      }
+    }
+    if (storedSession) {
+      try {
+        setCurrentUser(JSON.parse(storedSession));
+      } catch (error) {
+        console.warn("No se pudo leer sesión guardada.");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("eventfilms-users", JSON.stringify(users));
+  }, [users]);
+
+  useEffect(() => {
+    if (currentUser) {
+      window.localStorage.setItem("eventfilms-current-user", JSON.stringify(currentUser));
+    } else {
+      window.localStorage.removeItem("eventfilms-current-user");
+    }
+  }, [currentUser]);
+
+  const login = (username: string, password: string) => {
+    const user = users.find(
+      (item) => item.username === username && item.password === password
+    );
+    if (!user) return undefined;
+    setCurrentUser(user);
+    return user;
+  };
+
+  const logout = () => {
+    setCurrentUser(null);
+  };
+
+  const createUser = (user: Omit<UserAccount, "id">) => {
+    if (users.some((item) => item.username === user.username)) {
+      return false;
+    }
+    const newUser = { id: Date.now(), ...user };
+    setUsers((prev) => [...prev, newUser]);
+    return true;
+  };
+
+  const createWorkerAccount = (
+    personalId: number,
+    username: string,
+    password: string
+  ) => {
+    if (users.some((item) => item.username === username || item.personalId === personalId)) {
+      return false;
+    }
+    const personal = personalList.find((member) => member.id === personalId);
+    if (!personal) {
+      return false;
+    }
+    return createUser({
+      username,
+      password,
+      roles: ["personal"],
+      personalId,
+      specialty: personal.rol,
+      nombres: personal.nombres,
+      apellidos: personal.apellidos,
+      email: personal.email,
+    });
+  };
 
   // Cargar datos reales desde MySQL al montar
   useEffect(() => {
@@ -631,6 +772,13 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
         setEdiciones,
         personalList,
         setPersonalList,
+        users,
+        setUsers,
+        currentUser,
+        login,
+        logout,
+        createUser,
+        createWorkerAccount,
         almacenamientos,
         setAlmacenamientos,
         eventosDesignados,

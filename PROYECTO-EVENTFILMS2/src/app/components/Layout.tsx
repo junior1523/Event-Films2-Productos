@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation } from "react-router";
+import { Outlet, Link, Navigate, useLocation } from "react-router";
 import {
   LayoutDashboard,
   FileText,
@@ -9,14 +9,23 @@ import {
   PackageOpen,
   Menu,
   X,
+  LogOut,
+  ShieldCheck,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useState } from "react";
+import { useAppData } from "../context/AppDataContext";
 
 export function Layout() {
+  const { currentUser, logout } = useAppData();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const navigation = [
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const adminNavigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Contratos", href: "/contratos", icon: FileText },
     { name: "Pagos", href: "/pagos", icon: CreditCard },
@@ -24,7 +33,33 @@ export function Layout() {
     { name: "Ediciones", href: "/ediciones", icon: Film },
     { name: "Horarios", href: "/horarios", icon: Calendar },
     { name: "Material", href: "/material", icon: PackageOpen },
+    { name: "Usuarios", href: "/usuarios", icon: ShieldCheck },
   ];
+
+  const editorNavigation = [
+    { name: "Ediciones", href: "/ediciones", icon: Film },
+    { name: "Perfil", href: "/perfil", icon: Users },
+  ];
+
+  const personalNavigation = [
+    { name: "Mi calendario", href: "/trabajador", icon: Calendar },
+    { name: "Perfil", href: "/perfil", icon: Users },
+  ];
+
+  const mixedNavigation = [
+    { name: "Selección de rol", href: "/seleccionar-rol", icon: SlidersHorizontal },
+    { name: "Ediciones", href: "/ediciones", icon: Film },
+    { name: "Mi calendario", href: "/trabajador", icon: Calendar },
+    { name: "Perfil", href: "/perfil", icon: Users },
+  ];
+
+  const navigation = currentUser.roles.includes("admin")
+    ? adminNavigation
+    : currentUser.roles.includes("editor") && currentUser.roles.includes("personal")
+    ? mixedNavigation
+    : currentUser.roles.includes("editor")
+    ? editorNavigation
+    : personalNavigation;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -106,7 +141,29 @@ export function Layout() {
       )}
 
       {/* Main content */}
-      <main className="md:pl-64 pt-16 md:pt-0">
+      <main className="md:pl-64 pt-20 md:pt-0">
+        <div className="sticky top-16 z-20 hidden md:block bg-gray-50 border-b border-slate-200">
+          <div className="flex items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+            <div className="text-sm text-slate-600">
+              Conectado como <strong>{currentUser.nombres} {currentUser.apellidos}</strong>
+            </div>
+            <div className="flex items-center gap-3">
+              <Link
+                to="/perfil"
+                className="inline-flex items-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-blue-400 hover:text-slate-900"
+              >
+                <Users className="mr-2 h-4 w-4" /> Perfil
+              </Link>
+              <button
+                type="button"
+                onClick={logout}
+                className="inline-flex items-center rounded-2xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+              >
+                <LogOut className="mr-2 h-4 w-4" /> Cerrar sesión
+              </button>
+            </div>
+          </div>
+        </div>
         <div className="px-4 py-8 sm:px-6 lg:px-8 max-w-7xl mx-auto">
           <Outlet />
         </div>

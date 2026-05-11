@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import {
   TrendingUp,
   DollarSign,
@@ -20,64 +21,217 @@ import {
   Legend,
 } from "recharts";
 
-const stats = [
-  {
-    name: "Ingresos del Mes",
-    value: "S/ 45,280",
-    change: "+12.5%",
-    icon: DollarSign,
-    color: "bg-green-500",
-  },
-  {
-    name: "Contratos Activos",
-    value: "23",
-    change: "+3",
-    icon: FileText,
-    color: "bg-blue-500",
-  },
-  {
-    name: "Eventos Pendientes",
-    value: "8",
-    change: "Esta semana",
-    icon: Calendar,
-    color: "bg-purple-500",
-  },
-  {
-    name: "Ediciones en Proceso",
-    value: "12",
-    change: "5 por entregar",
-    icon: Video,
-    color: "bg-orange-500",
-  },
+type Evento = {
+  id: number;
+  evento?: string;
+  cliente?: string;
+  fechaInicio?: string;
+  fechaEntrega?: string;
+  estado?: string;
+  prioridad?: string;
+  tipo?: string;
+};
+
+type Contrato = {
+  id: number;
+  estado?: string;
+};
+
+type Pago = {
+  id: number;
+  monto?: number;
+  fecha?: string;
+  estado?: string;
+};
+
+const monthNames = [
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
 ];
 
-const monthlyRevenue = [
-  { month: "Ene", ingresos: 28000 },
-  { month: "Feb", ingresos: 32000 },
-  { month: "Mar", ingresos: 35000 },
-  { month: "Abr", ingresos: 38000 },
-  { month: "May", ingresos: 42000 },
-  { month: "Jun", ingresos: 45280 },
+const typeColors = [
+  "#3b82f6",
+  "#ec4899",
+  "#8b5cf6",
+  "#10b981",
+  "#f59e0b",
+  "#14b8a6",
+  "#a855f7",
 ];
 
-const eventTypes = [
-  { name: "Bodas", value: 45, color: "#3b82f6" },
-  { name: "XV Años", value: 25, color: "#ec4899" },
-  { name: "Cumpleaños", value: 15, color: "#8b5cf6" },
-  { name: "Corporativos", value: 15, color: "#10b981" },
-];
-
-const recentEvents = [
-  {
-    id: 1,
-    name: "Boda Luis & Sofía",
-    date: "2026-04-20",
-    status: "Confirmado",
-    client: "Luis Martínez",
-  },
-];
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("es-PE", {
+    style: "currency",
+    currency: "PEN",
+    maximumFractionDigits: 0,
+  }).format(value);
 
 export function Dashboard() {
+  const [eventos, setEventos] = useState<Evento[]>([]);
+  const [contratos, setContratos] = useState<Contrato[]>([]);
+  const [pagos, setPagos] = useState<Pago[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [eventosRes, contratosRes, pagosRes] = await Promise.all([
+          fetch("http://localhost:3001/api/eventos"),
+          fetch("http://localhost:3001/api/contratos"),
+          fetch("http://localhost:3001/api/pagos"),
+        ]);
+
+        if (!eventosRes.ok || !contratosRes.ok || !pagosRes.ok) {
+          throw new Error("Error al cargar datos del dashboard");
+        }
+
+        const [eventosData, contratosData, pagosData] = await Promise.all([
+          eventosRes.json(),
+          contratosRes.json(),
+          pagosRes.json(),
+        ]);
+
+        setEventos(eventosData);
+        setContratos(contratosData);
+        setPagos(pagosData);
+      } catch (err) {
+        console.error(err);
+        setError(
+          "No se pudo cargar la información del dashboard. Verifica que el servidor esté activo."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const ingresosDelMes = useMemo(() => {
+    const now = new Date();
+    return pagos.reduce((total, pago) => {
+      if (!pago.fecha) return total;
+      const fecha = new Date(pago.fecha);
+      if (
+        fecha.getFullYear() === now.getFullYear() &&
+        fecha.getMonth() === now.getMonth() &&
+        pago.estado === "Pagado"
+      ) {
+        return total + (typeof pago.monto === "number" ? pago.monto : Number(pago.monto) || 0);
+      }
+      return total;
+    }, 0);
+  }, [pagos]);
+
+  const contratosActivos = useMemo(
+    () => contratos.filter((contrato) => contrato.estado !== "Pendiente").length,
+    [contratos]
+  );
+
+  const eventosPendientes = useMemo(
+    () =>
+      eventos.filter(
+        (evento) =>
+          evento.estado === "Sin Iniciar" ||
+          evento.estado === "Pendiente" ||
+          evento.estado === "Confirmado"
+      ).length,
+    [eventos]
+  );
+
+  const edicionesEnProceso = useMemo(
+    () => eventos.filter((evento) => evento.estado === "En Proceso").length,
+    [eventos]
+  );
+
+  const monthlyRevenue = useMemo(() => {
+    const now = new Date();
+    const months = Array.from({ length: 12 }, (_, index) => ({
+      month: monthNames[index],
+      ingresos: 0,
+    }));
+
+    pagos.forEach((pago) => {
+      if (!pago.fecha) return;
+      const fecha = new Date(pago.fecha);
+      if (fecha.getFullYear() === now.getFullYear() && pago.estado === "Pagado") {
+        const monthIndex = fecha.getMonth();
+        months[monthIndex].ingresos +=
+          typeof pago.monto === "number" ? pago.monto : Number(pago.monto) || 0;
+      }
+    });
+
+    return months;
+  }, [pagos]);
+
+  const eventTypes = useMemo(() => {
+    const counts = eventos.reduce<Record<string, number>>((acc, evento) => {
+      const type = evento.tipo || "Otro";
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+
+    return Object.entries(counts).map(([name, value], index) => ({
+      name,
+      value,
+      color: typeColors[index % typeColors.length],
+    }));
+  }, [eventos]);
+
+  const recentEvents = useMemo(
+    () =>
+      [...eventos]
+        .sort((a, b) => {
+          const aDate = a.fechaInicio ? new Date(a.fechaInicio).getTime() : 0;
+          const bDate = b.fechaInicio ? new Date(b.fechaInicio).getTime() : 0;
+          return bDate - aDate;
+        })
+        .slice(0, 5),
+    [eventos]
+  );
+
+  const stats = [
+    {
+      name: "Ingresos del Mes",
+      value: formatCurrency(ingresosDelMes),
+      change: loading ? "Cargando..." : "Actualizado",
+      icon: DollarSign,
+      color: "bg-green-500",
+    },
+    {
+      name: "Contratos Activos",
+      value: String(contratosActivos),
+      change: loading ? "Cargando..." : "Actualizado",
+      icon: FileText,
+      color: "bg-blue-500",
+    },
+    {
+      name: "Eventos Pendientes",
+      value: String(eventosPendientes),
+      change: loading ? "Cargando..." : "Actualizado",
+      icon: Calendar,
+      color: "bg-purple-500",
+    },
+    {
+      name: "Ediciones en Proceso",
+      value: String(edicionesEnProceso),
+      change: loading ? "Cargando..." : "Actualizado",
+      icon: Video,
+      color: "bg-orange-500",
+    },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -86,6 +240,15 @@ export function Dashboard() {
         <p className="mt-1 text-gray-600">
           Resumen general de tu empresa de filmaciones
         </p>
+        {error ? (
+          <div className="mt-4 rounded-md bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+            {error}
+          </div>
+        ) : loading ? (
+          <div className="mt-4 rounded-md bg-blue-50 border border-blue-200 p-4 text-sm text-blue-700">
+            Cargando información del dashboard...
+          </div>
+        ) : null}
       </div>
 
       {/* Stats Grid */}
