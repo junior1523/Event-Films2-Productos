@@ -82,6 +82,29 @@ export interface Edicion {
   lugar: string;
   nombreArchivo: string;
   tipo?: string;
+  estadoEntregaFinal?: string;
+  revisionAudio?: boolean;
+  revisionColor?: boolean;
+  revisionFinal?: boolean;
+  fechaEdicionInicio?: string;
+  fechaEdicionFin?: string;
+  capitulosNum?: number;
+  tiempoTotalHoras?: number;
+  tiempoTotalMinutos?: number;
+  trailerEstado?: string;
+  fotosBrutoCantidad?: number;
+  fotosBrutoFormato?: string;
+  fotosEditadasCantidad?: number;
+  fotosEditadasListas?: boolean;
+  fotosEditadasFormato?: string;
+  observaciones?: string;
+  entregaMedio?: string;
+  usbSize?: string;
+  usbCantidad?: number;
+  dvdCount?: number;
+  blurayCount?: number;
+  otrosEntrega?: string;
+  estadoEntregaFinalOtros?: string;
 }
 
 export interface PersonalMember {
@@ -733,6 +756,29 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           lugar: row.lugar ?? "",
           nombreArchivo: row.nombreArchivo ?? "",
           tipo: row.tipo ?? "Evento social",
+          estadoEntregaFinal: row.estado_entrega_final ?? "No iniciado",
+          revisionAudio: Boolean(row.revision_audio),
+          revisionColor: Boolean(row.revision_color),
+          revisionFinal: Boolean(row.revision_final),
+          fechaEdicionInicio: row.fecha_edicion_inicio?.slice(0, 10) ?? "",
+          fechaEdicionFin: row.fecha_edicion_fin?.slice(0, 10) ?? "",
+          capitulosNum: row.capitulos ?? 0,
+          tiempoTotalHoras: row.tiempo_total_horas ?? 0,
+          tiempoTotalMinutos: row.tiempo_total_minutos ?? 0,
+          trailerEstado: row.trailer_estado ?? "No iniciado",
+          fotosBrutoCantidad: row.fotos_bruto_cantidad ?? 0,
+          fotosBrutoFormato: row.fotos_bruto_formato ?? "RAW",
+          fotosEditadasCantidad: row.fotos_editadas_cantidad ?? 0,
+          fotosEditadasListas: Boolean(row.fotos_editadas_listas),
+          fotosEditadasFormato: row.fotos_editadas_formato ?? "JPEG",
+          observaciones: row.observaciones ?? "",
+          entregaMedio: row.entrega_medio ?? "USB",
+          usbSize: row.usb_size ?? "64GB",
+          usbCantidad: row.usb_cantidad ?? 1,
+          dvdCount: row.dvd_count ?? 0,
+          blurayCount: row.bluray_count ?? 0,
+          otrosEntrega: row.otros_entrega ?? "",
+          estadoEntregaFinalOtros: row.estado_entrega_final_otros ?? "",
         }));
         setEdiciones(mapped.filter((item) => !isHiddenSampleName(item.evento)));
 

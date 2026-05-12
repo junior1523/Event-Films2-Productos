@@ -162,7 +162,7 @@ export function Layout() {
 
       {/* Main content */}
       <main className="md:pl-64 pt-20 md:pt-0">
-        <div className="sticky top-16 z-20 hidden md:block bg-gray-50 border-b border-slate-200">
+        <div className="sticky top-0 z-30 hidden md:block bg-gray-50/80 backdrop-blur-md border-b border-slate-200">
           <div className="flex items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
             <div className="text-sm text-slate-600">
               Conectado como <strong>{currentUser.nombres} {currentUser.apellidos}</strong>

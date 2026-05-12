@@ -13,6 +13,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { useAppData, type Almacenamiento, type EventoDesignado } from "../context/AppDataContext";
+import { toast } from "sonner";
 
 interface Edicion {
   id: number;
@@ -85,38 +86,34 @@ const getInitialDetails = (edicion: Edicion): DetallesEdicion => ({
   fechaFin: edicion.fechaEntrega,
   nombreArchivo: edicion.nombreArchivo || `archivo_${edicion.id}.mp4`,
   datosAdicionales: "",
-  revisionAudio: false,
-  revisionColor: false,
-  revisionFinal: false,
+  revisionAudio: edicion.revisionAudio ?? false,
+  revisionColor: edicion.revisionColor ?? false,
+  revisionFinal: edicion.revisionFinal ?? false,
   editor: edicion.editor,
   prioridad: edicion.prioridad,
-  camaras: 3,
-  tiemposCamaras: [
-    { horas: 2, minutos: 30 },
-    { horas: 2, minutos: 30 },
-    { horas: 2, minutos: 30 },
-  ],
-  fechaEdicionInicio: edicion.fechaInicio,
-  fechaEdicionFin: edicion.fechaEntrega,
-  capitulos: 4,
-  tiempoTotalHoras: 5,
-  tiempoTotalMinutos: 15,
-  trailerEstado: "Proceso",
-  fotosBrutoCantidad: 120,
-  fotosBrutoFormato: "RAW",
-  fotosEditadasCantidad: 48,
-  fotosEditadasListas: false,
-  fotosEditadasFormato: "JPEG",
+  camaras: 1, // Default, can be adjusted
+  tiemposCamaras: [],
+  fechaEdicionInicio: edicion.fechaEdicionInicio || edicion.fechaInicio,
+  fechaEdicionFin: edicion.fechaEdicionFin || edicion.fechaEntrega,
+  capitulos: edicion.capitulosNum ?? 0,
+  tiempoTotalHoras: edicion.tiempoTotalHoras ?? 0,
+  tiempoTotalMinutos: edicion.tiempoTotalMinutos ?? 0,
+  trailerEstado: (edicion.trailerEstado as any) || "No iniciado",
+  fotosBrutoCantidad: edicion.fotosBrutoCantidad ?? 0,
+  fotosBrutoFormato: edicion.fotosBrutoFormato || "RAW",
+  fotosEditadasCantidad: edicion.fotosEditadasCantidad ?? 0,
+  fotosEditadasListas: edicion.fotosEditadasListas ?? false,
+  fotosEditadasFormato: edicion.fotosEditadasFormato || "JPEG",
   estadoEdicion: edicion.estado,
-  observaciones: "",
-  entregaMedio: "USB",
-  usbSize: "64GB",
-  usbCantidad: 1,
-  dvdCount: 0,
-  blurayCount: 0,
-  otrosEntrega: "",
-  estadoEntregaFinal: "En proceso",
-  estadoEntregaFinalOtros: "",
+  observaciones: edicion.observaciones || "",
+  entregaMedio: edicion.entregaMedio || "USB",
+  usbSize: edicion.usbSize || "64GB",
+  usbCantidad: edicion.usbCantidad ?? 1,
+  dvdCount: edicion.dvdCount ?? 0,
+  blurayCount: edicion.blurayCount ?? 0,
+  otrosEntrega: edicion.otrosEntrega || "",
+  estadoEntregaFinal: edicion.estadoEntregaFinal || "En proceso",
+  estadoEntregaFinalOtros: edicion.estadoEntregaFinalOtros || "",
 });
 
 export function Ediciones() {
@@ -424,7 +421,7 @@ export function Ediciones() {
         return "En Proceso";
       case "Revisión":
         return "Revisión";
-      case "Listo":
+      case "Completado":
         return "Completado";
       case "Entregado":
         return "Entregado";
@@ -455,6 +452,29 @@ export function Ediciones() {
       duracionEstimada: `${selectedDetails.tiempoTotalHoras}h ${selectedDetails.tiempoTotalMinutos}m`,
       lugar: selectedDetails.lugar,
       nombreArchivo: selectedDetails.nombreArchivo,
+      estadoEntregaFinal: selectedDetails.estadoEntregaFinal,
+      revisionAudio: selectedDetails.revisionAudio,
+      revisionColor: selectedDetails.revisionColor,
+      revisionFinal: selectedDetails.revisionFinal,
+      fechaEdicionInicio: selectedDetails.fechaEdicionInicio,
+      fechaEdicionFin: selectedDetails.fechaEdicionFin,
+      capitulosNum: selectedDetails.capitulos,
+      tiempoTotalHoras: selectedDetails.tiempoTotalHoras,
+      tiempoTotalMinutos: selectedDetails.tiempoTotalMinutos,
+      trailerEstado: selectedDetails.trailerEstado,
+      fotosBrutoCantidad: selectedDetails.fotosBrutoCantidad,
+      fotosBrutoFormato: selectedDetails.fotosBrutoFormato,
+      fotosEditadasCantidad: selectedDetails.fotosEditadasCantidad,
+      fotosEditadasListas: selectedDetails.fotosEditadasListas,
+      fotosEditadasFormato: selectedDetails.fotosEditadasFormato,
+      observaciones: selectedDetails.observaciones,
+      entregaMedio: selectedDetails.entregaMedio,
+      usbSize: selectedDetails.usbSize,
+      usbCantidad: selectedDetails.usbCantidad,
+      dvdCount: selectedDetails.dvdCount,
+      blurayCount: selectedDetails.blurayCount,
+      otrosEntrega: selectedDetails.otrosEntrega,
+      estadoEntregaFinalOtros: selectedDetails.estadoEntregaFinalOtros,
     };
 
     // Actualizar UI inmediatamente
@@ -467,7 +487,7 @@ export function Ediciones() {
 
     // Persistir en MySQL
     try {
-      await fetch(`http://localhost:3001/api/eventos/${selectedDetails.id}`, {
+      const res = await fetch(`http://localhost:3001/api/eventos/${selectedDetails.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -503,9 +523,16 @@ export function Ediciones() {
           estado_entrega_final_otros: selectedDetails.estadoEntregaFinalOtros,
         }),
       });
-      window.alert("✅ Detalles guardados correctamente en la base de datos");
-    } catch {
-      window.alert("⚠️ Guardado localmente. No se pudo conectar con la base de datos.");
+
+      if (res.ok) {
+        toast.success("✅ Detalles guardados correctamente");
+      } else {
+        const errorData = await res.json();
+        toast.error(`❌ Error al guardar: ${errorData.error || 'Desconocido'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("⚠️ Error de conexión con el servidor");
     }
   };
 
@@ -1419,7 +1446,7 @@ export function Ediciones() {
                         <option>Sin Iniciar</option>
                         <option>En Proceso</option>
                         <option>Revisión</option>
-                        <option>Listo</option>
+                        <option>Completado</option>
                       </select>
                     </div>
                     <div>

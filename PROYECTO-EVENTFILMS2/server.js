@@ -29,12 +29,10 @@ app.get("/api/editores", async (req, res) => {
 app.get("/api/eventos", async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT e.id, e.nombre AS evento, c.nombre AS cliente,
+      SELECT e.*, e.nombre AS evento, c.nombre AS cliente,
              ed.nombre AS editor, e.fecha_inicio AS fechaInicio,
-             e.fecha_entrega AS fechaEntrega, e.progreso, e.estado,
-             e.prioridad, e.duracion_estimada AS duracionEstimada,
-             e.lugar, e.archivo_nombre AS nombreArchivo,
-             e.tipo_evento AS tipo
+             e.fecha_entrega AS fechaEntrega, e.duracion_estimada AS duracionEstimada,
+             e.archivo_nombre AS nombreArchivo, e.tipo_evento AS tipo
       FROM eventos e
       LEFT JOIN clientes c ON c.id = e.cliente_id
       LEFT JOIN editores ed ON ed.id = e.editor_id
@@ -451,6 +449,66 @@ app.delete("/api/notificaciones/:id", async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "Error al eliminar notificación" });
+  }
+});
+
+// ─── MATERIAL AUDIOVISUAL ─────────────────────────────────────────────────────
+app.get("/api/material", async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT m.*, e.nombre AS evento_nombre, c.nombre AS cliente_nombre
+      FROM material_audiovisual m
+      LEFT JOIN eventos e ON e.id = m.evento_id
+      LEFT JOIN clientes c ON c.id = e.cliente_id
+      ORDER BY m.created_at DESC
+    `);
+    const mapped = rows.map(r => ({
+      ...r,
+      capitulos: typeof r.capitulos === 'string' ? JSON.parse(r.capitulos) : r.capitulos,
+      links: typeof r.links === 'string' ? JSON.parse(r.links) : r.links
+    }));
+    res.json(mapped);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al obtener material" });
+  }
+});
+
+app.post("/api/material", async (req, res) => {
+  const { evento_id, capitulos, fotos, links } = req.body;
+  try {
+    const [result] = await pool.query(
+      "INSERT INTO material_audiovisual (evento_id, capitulos, fotos, links) VALUES (?, ?, ?, ?)",
+      [evento_id, JSON.stringify(capitulos || []), fotos, JSON.stringify(links || [])]
+    );
+    res.json({ id: result.insertId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al crear material" });
+  }
+});
+
+app.put("/api/material/:id", async (req, res) => {
+  const { id } = req.params;
+  const { evento_id, capitulos, fotos, links } = req.body;
+  try {
+    await pool.query(
+      "UPDATE material_audiovisual SET evento_id=?, capitulos=?, fotos=?, links=?, updated_at=NOW() WHERE id=?",
+      [evento_id, JSON.stringify(capitulos || []), fotos, JSON.stringify(links || []), id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Error al actualizar material" });
+  }
+});
+
+app.delete("/api/material/:id", async (req, res) => {
+  try {
+    await pool.query("DELETE FROM material_audiovisual WHERE id=?", [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Error al eliminar material" });
   }
 });
 
