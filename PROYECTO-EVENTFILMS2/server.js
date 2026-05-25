@@ -208,40 +208,41 @@ app.get("/api/personal", async (req, res) => {
 app.post("/api/personal", async (req, res) => {
   const { 
     nombres, apellidos, edad, dni, telefono, direccion, fecha_nacimiento,
-    especialidades, adicional, rol, email, disponibilidad
+    especialidades, adicional, rol, email, disponibilidad, foto
   } = req.body;
   try {
     const [result] = await pool.query(
       `INSERT INTO personal_total (nombres, apellidos, edad, dni, telefono, direccion, fecha_nacimiento,
-        especialidades, adicional, rol, email, disponibilidad)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        especialidades, adicional, rol, email, disponibilidad, foto)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         nombres, apellidos, edad, dni, telefono, direccion, fecha_nacimiento,
-        JSON.stringify(especialidades || []), adicional, rol, email, disponibilidad
+        JSON.stringify(especialidades || []), adicional, rol, email, disponibilidad,
+        foto || null
       ]
     );
     res.json({ id: result.insertId });
   } catch (err) {
     res.status(500).json({ error: "Error al crear personal" });
   }
-});
+})
 
 app.put("/api/personal/:id", async (req, res) => {
   const { id } = req.params;
   const { 
     nombres, apellidos, edad, dni, telefono, direccion, fecha_nacimiento,
-    especialidades, adicional, rol, email, disponibilidad, calificacion
+    especialidades, adicional, rol, email, disponibilidad, calificacion, foto
   } = req.body;
   try {
     await pool.query(
       `UPDATE personal_total SET nombres=?, apellidos=?, edad=?, dni=?, telefono=?, direccion=?, 
         fecha_nacimiento=?, especialidades=?, adicional=?, rol=?, email=?, disponibilidad=?, 
-        calificacion=?, updated_at=NOW()
+        calificacion=?, foto=?, updated_at=NOW()
        WHERE id=?`,
       [
         nombres, apellidos, edad, dni, telefono, direccion, fecha_nacimiento,
         JSON.stringify(especialidades || []), adicional, rol, email, disponibilidad,
-        calificacion, id
+        calificacion, foto || null, id
       ]
     );
     res.json({ success: true });

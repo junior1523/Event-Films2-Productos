@@ -49,6 +49,7 @@ interface PersonalMember {
   disponibilidadTexto?: string;
   eventosAsignados: number;
   calificacion: number;
+  foto?: string;
 }
 
 const specialtyOptions = [
@@ -90,6 +91,7 @@ const emptyForm: Omit<PersonalMember, "id" | "email" | "rol" | "eventosAsignados
   fechaNacimiento: "",
   especialidades: [],
   adicional: "",
+  foto: "",
 };
 
 export function Personal() {
@@ -119,6 +121,7 @@ export function Personal() {
     disponibilidadTexto: "",
     eventosAsignados: 0,
     calificacion: 0,
+    foto: "",
   });
 
   const filteredPersonal = useMemo(
@@ -218,6 +221,7 @@ export function Personal() {
       disponibilidadTexto: "",
       eventosAsignados: 0,
       calificacion: 0,
+      foto: "",
     });
     setFormOpen(true);
   };
@@ -270,6 +274,16 @@ export function Personal() {
     });
   };
 
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormState((current) => ({ ...current, foto: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (formMode === "view") {
@@ -290,7 +304,8 @@ export function Personal() {
       rol: formState.especialidades[0] === "Operador de Drone" ? "Drone Operator" : (formState.especialidades[0] || "Asistente"),
       email: formState.email || `${formState.nombres.toLowerCase()}.${formState.apellidos.toLowerCase().replace(/\s/g, "")}@eventfilms.com`,
       disponibilidad: formState.disponibilidad,
-      calificacion: formState.calificacion
+      calificacion: formState.calificacion,
+      foto: formState.foto || "",
     };
 
     try {
@@ -305,7 +320,8 @@ export function Personal() {
           ...formState, 
           id: data.id, 
           email: memberData.email,
-          rol: memberData.rol as PersonalMember["rol"]
+          rol: memberData.rol as PersonalMember["rol"],
+          foto: memberData.foto,
         };
         setPersonalList((current) => [newMember, ...current]);
       } else if (formMode === "edit" && activeMember) {
@@ -316,7 +332,7 @@ export function Personal() {
         });
         setPersonalList((current) =>
           current.map((member) =>
-            member.id === activeMember.id ? { ...member, ...memberData, rol: memberData.rol as PersonalMember["rol"] } : member
+            member.id === activeMember.id ? { ...member, ...memberData, rol: memberData.rol as PersonalMember["rol"], foto: memberData.foto } : member
           )
         );
       }
@@ -554,6 +570,37 @@ export function Personal() {
             </div>
           )}
 
+            {/* Foto de perfil */}
+            <div className="space-y-2">
+              <Label>Foto de perfil</Label>
+              <div className="flex items-center gap-4">
+                <div
+                  className="w-20 h-20 rounded-xl overflow-hidden border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 flex-shrink-0"
+                >
+                  {formState.foto ? (
+                    <img src={formState.foto} alt="Foto" className="w-full h-full object-cover" />
+                  ) : (
+                    <UserCircle className="w-10 h-10 text-gray-300" />
+                  )}
+                </div>
+                {formMode !== "view" && (
+                  <label className="cursor-pointer flex flex-col items-start gap-1">
+                    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-blue-300 bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100 transition">
+                      <Camera className="w-4 h-4" />
+                      {formState.foto ? "Cambiar foto" : "Subir foto"}
+                    </span>
+                    <span className="text-xs text-gray-400">JPG, PNG — máx. 5 MB</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePhotoChange}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="adicional">Adicional</Label>
               <Textarea
@@ -649,95 +696,105 @@ export function Personal() {
         </select>
       </div>
 
-      {/* Team Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Team Grid — card con foto de fondo */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         {filteredPersonal.map((member) => (
           <div
             key={member.id}
-            className="bg-white rounded-lg shadow hover:shadow-lg transition-shadow p-6"
+            className="relative rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow group"
+            style={{ aspectRatio: "3/4", minHeight: 260 }}
           >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center">
-                {getRolIcon(member.rol)}
-                <div className="ml-3">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {member.nombres} {member.apellidos}
-                  </h3>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {member.especialidades.map((especialidad) => (
-                      <span
-                        key={especialidad}
-                        className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700"
-                      >
-                        {getEspecialidadIcon(especialidad)}
-                        {especialidad}
-                      </span>
-                    ))}
-                  </div>
+            {/* Fondo: foto o gradiente */}
+            {member.foto ? (
+              <img
+                src={member.foto}
+                alt={`${member.nombres} ${member.apellidos}`}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            ) : (
+              <div
+                className="absolute inset-0 w-full h-full"
+                style={{
+                  background: "linear-gradient(135deg, #374151 0%, #1f2937 60%, #111827 100%)",
+                }}
+              >
+                <div className="absolute inset-0 flex items-center justify-center opacity-20">
+                  <UserCircle className="w-32 h-32 text-white" />
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-gray-400">
-                <button
-                  onClick={() => openViewForm(member)}
-                  className="rounded-md p-2 hover:bg-gray-100"
-                  type="button"
-                >
-                  <Eye className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => openEditForm(member)}
-                  className="rounded-md p-2 hover:bg-gray-100"
-                  type="button"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(member.id)}
-                  className="rounded-md p-2 hover:bg-gray-100 text-red-500"
-                  type="button"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
+            )}
 
-            <div className="space-y-3 mb-4">
-              <div className="flex items-center text-sm text-gray-600">
-                <Phone className="w-4 h-4 mr-2" />
-                {member.telefono}
-              </div>
-              <div className="flex items-center text-sm text-gray-600">
-                <Mail className="w-4 h-4 mr-2" />
-                {member.email}
-              </div>
-              <div className="text-sm text-gray-600">
-                DNI: {member.dni}
-              </div>
-              <div className="text-sm text-gray-600">
-                Fecha de Nacimiento: {member.fechaNacimiento}
-              </div>
-            </div>
+            {/* Gradient overlay bottom */}
+            <div
+              className="absolute inset-0"
+              style={{
+                background: "linear-gradient(to top, rgba(0,0,0,0.80) 0%, rgba(0,0,0,0.25) 50%, rgba(0,0,0,0.08) 100%)",
+              }}
+            />
 
-            <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-              <span
-                className={`px-3 py-1 text-xs font-semibold rounded-full ${getDisponibilidadBadge(
-                  member.disponibilidad
-                )}`}
-              >
-                {getDisponibilidadLabel(member)}
+            {/* Top: rol badge */}
+            <div className="absolute top-3 left-3 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full px-2.5 py-1">
+              <span className="text-white">{getRolIcon(member.rol)}</span>
+              <span className="text-white text-xs font-medium">
+                {member.especialidades[0] ?? member.rol}
               </span>
-              <div className="text-sm text-gray-600">
-                {member.eventosAsignados} eventos
-              </div>
             </div>
 
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200">
-              <span className="text-sm text-gray-600">Calificación</span>
-              <div className="flex items-center">
-                <span className="text-yellow-500 mr-1">★</span>
-                <span className="text-sm font-semibold text-gray-900">
-                  {member.calificacion}
+            {/* Top right: action buttons */}
+            <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => openViewForm(member)}
+                className="rounded-lg p-1.5 bg-white/20 backdrop-blur-sm text-white hover:bg-white/40 transition"
+                type="button"
+                title="Ver"
+              >
+                <Eye className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => openEditForm(member)}
+                className="rounded-lg p-1.5 bg-white/20 backdrop-blur-sm text-white hover:bg-white/40 transition"
+                type="button"
+                title="Editar"
+              >
+                <Edit className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => handleDelete(member.id)}
+                className="rounded-lg p-1.5 bg-red-500/70 backdrop-blur-sm text-white hover:bg-red-600/90 transition"
+                type="button"
+                title="Eliminar"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Bottom info overlay */}
+            <div className="absolute bottom-0 left-0 right-0 p-3">
+              {/* nombre */}
+              <p className="text-white font-semibold text-sm leading-tight">
+                {member.nombres}<br />
+                <span className="font-normal">{member.apellidos}</span>
+              </p>
+
+              {/* rating + disponibilidad */}
+              <div className="flex items-center justify-between mt-2">
+                <span
+                  className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                    member.disponibilidad === "Disponible"
+                      ? "bg-green-400/90 text-green-900"
+                      : member.disponibilidad === "Ocupado"
+                      ? "bg-red-400/90 text-red-900"
+                      : member.disponibilidad === "Vacaciones"
+                      ? "bg-blue-400/90 text-blue-900"
+                      : "bg-gray-400/90 text-gray-900"
+                  }`}
+                >
+                  {getDisponibilidadLabel(member)}
                 </span>
+                <div className="flex items-center gap-1">
+                  <Star className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                  <span className="text-white text-xs font-semibold">{member.calificacion}</span>
+                </div>
               </div>
             </div>
           </div>
