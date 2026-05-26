@@ -124,6 +124,7 @@ export interface PersonalMember {
   disponibilidadTexto?: string;
   eventosAsignados: number;
   calificacion: number;
+  foto?: string;
 }
 
 export interface UserAccount {
@@ -917,6 +918,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
           disponibilidad: row.disponibilidad,
           eventosAsignados: row.eventos_asignados,
           calificacion: parseFloat(row.calificacion || "0"),
+          foto: row.foto ?? "",
         }));
         setPersonalList(mapped);
       })

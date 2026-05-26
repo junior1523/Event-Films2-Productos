@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Navigate } from "react-router";
 import { useAppData } from "../context/AppDataContext";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, UserCircle } from "lucide-react";
 
 export function WorkerHome() {
   const { currentUser, personalList, horarioEventos } = useAppData();
@@ -93,22 +93,54 @@ export function WorkerHome() {
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900">Tus datos</h2>
           {assignedMember ? (
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-3xl bg-white p-5 shadow-sm">
-                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Nombre</p>
-                <p className="mt-3 text-lg font-semibold text-slate-900">{assignedMember.nombres} {assignedMember.apellidos}</p>
+            <div className="mt-6 space-y-4">
+              {/* Foto de perfil */}
+              <div className="flex items-center gap-5">
+                <div className="relative flex-shrink-0">
+                  {assignedMember.foto ? (
+                    <img
+                      src={assignedMember.foto}
+                      alt={`${assignedMember.nombres} ${assignedMember.apellidos}`}
+                      className="w-20 h-20 rounded-2xl object-cover shadow-md border-2 border-white"
+                    />
+                  ) : (
+                    <div
+                      className="w-20 h-20 rounded-2xl shadow-md border-2 border-white flex items-center justify-center"
+                      style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%)" }}
+                    >
+                      <span className="text-2xl font-bold text-white select-none">
+                        {assignedMember.nombres.charAt(0)}{assignedMember.apellidos.charAt(0)}
+                      </span>
+                    </div>
+                  )}
+                  <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white bg-green-400 shadow" />
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-slate-900">
+                    {assignedMember.nombres} {assignedMember.apellidos}
+                  </p>
+                  <p className="text-sm text-slate-500">{assignedMember.rol}</p>
+                </div>
               </div>
-              <div className="rounded-3xl bg-white p-5 shadow-sm">
-                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Especialidad</p>
-                <p className="mt-3 text-lg font-semibold text-slate-900">{assignedMember.rol}</p>
-              </div>
-              <div className="rounded-3xl bg-white p-5 shadow-sm">
-                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Disponibilidad</p>
-                <p className="mt-3 text-lg font-semibold text-slate-900">{assignedMember.disponibilidad}</p>
-              </div>
-              <div className="rounded-3xl bg-white p-5 shadow-sm">
-                <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Eventos asignados</p>
-                <p className="mt-3 text-lg font-semibold text-slate-900">{assignedEvents.length}</p>
+
+              {/* Datos en grid */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-3xl bg-white p-5 shadow-sm">
+                  <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Nombre</p>
+                  <p className="mt-3 text-lg font-semibold text-slate-900">{assignedMember.nombres} {assignedMember.apellidos}</p>
+                </div>
+                <div className="rounded-3xl bg-white p-5 shadow-sm">
+                  <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Especialidad</p>
+                  <p className="mt-3 text-lg font-semibold text-slate-900">{assignedMember.rol}</p>
+                </div>
+                <div className="rounded-3xl bg-white p-5 shadow-sm">
+                  <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Disponibilidad</p>
+                  <p className="mt-3 text-lg font-semibold text-slate-900">{assignedMember.disponibilidad}</p>
+                </div>
+                <div className="rounded-3xl bg-white p-5 shadow-sm">
+                  <p className="text-sm uppercase tracking-[0.2em] text-slate-500">Eventos asignados</p>
+                  <p className="mt-3 text-lg font-semibold text-slate-900">{assignedEvents.length}</p>
+                </div>
               </div>
             </div>
           ) : (
